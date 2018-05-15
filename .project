@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>simplePOKtagger</name>
+	<comment></comment>
+	<projects>
+		<project>wdbplus</project>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>com.oxygenxml.editor.xmlbuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>com.oxygenxml.editor.xmlnature</nature>
+	</natures>
+</projectDescription>
