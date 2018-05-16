@@ -60,18 +60,22 @@ declare function spt:person($query as xs:string)  {
 declare function spt:getWhen($data) as node()* {
     if (count($data//*:mainsnak) > 1) then
     (
-        for $date at $pos in $data//*:mainsnak
+        let $dates := for $date in $data//*:mainsnak
             group by $dateVal := $date//*:value/@time
             order by $dateVal
+            return $date
             
-            return (
-                if ($pos = 1) then  attribute not-before {spt:getTEIDate($date//*:value)} else(),
-                if ($pos = count($date)) then  attribute not-after {spt:getTEIDate($date//*:value)} else(),
-                text {spt:getLongDate(spt:getTEIDate($date//*:value), 'de')},
-                if ($pos = count($data//*:mainsnak)) then ()
-                else if ($pos = count($data//*:mainsnak) - 1) then text {" oder "}
-                else text {", "}
+        return (
+            attribute not-before {spt:getTEIDate($dates[1]//*:value)},
+            attribute not-after {spt:getTEIDate($dates[last()]//*:value)},
+            for $date at $pos in $dates
+                return (
+                    text {spt:getLongDate(spt:getTEIDate($date//*:value), 'de')},
+                    if ($pos = count($data//*:mainsnak)) then ()
+                    else if ($pos = count($data//*:mainsnak) - 1) then text {" oder "}
+                    else text {", "}
             )
+        )
     )
     else
     (
