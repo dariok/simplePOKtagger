@@ -4,7 +4,7 @@ module namespace spt = "https://github.com/dariok/simplePOKtagger";
 
 declare function spt:person($query as xs:string)  {
 
-    let $req := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;titles=" || $query || "&amp;languages=de"
+    let $req := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;titles=" || $query || "&amp;languages=de|en"
     let $resp := doc($req)
     
     return if ($resp//*:entity[@id != '-1']) then
@@ -19,7 +19,7 @@ declare function spt:person($query as xs:string)  {
                 for $form in distinct-values($wbData[1]/*:aliases//*:alias/@value)
                     return <persName type="alias">{$form}</persName>
             }
-            <occupation>{normalize-space($wbData[1]//*:entity[1]/*:descriptions/*:description[@language='de']/@value)}</occupation>
+            <occupation>{normalize-space($wbData[1]//*:descriptions/*:description[1]/@value)}</occupation>
             <idno type="URL" subtype="GND">{'http://d-nb.info/gnd/' || spt:getWbProp($wbData, 'P227')/@value}</idno>
             <sex>{
                 let $reqP := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;ids=" || 
@@ -29,50 +29,49 @@ declare function spt:person($query as xs:string)  {
                     return substring(doc($reqP)//*:entity[1]/*:labels/*:label[1]/@value, 1, 1)
             }</sex>
             <birth>{
-                let $prop := spt:getWbProp($wbData, 'P569')/*:value
-                let $teiDate := spt:getTEIDate($prop)
-                    
-                return (
-                    attribute when {$teiDate},
-                    spt:getLongDate($teiDate, 'de')
-                )}
-                {spt:getPlaceName(spt:getWbProp($wbData, 'P19')/*:value/@id)}
+                spt:getWhen(spt:getFullProp($wbData, 'P569')),
+                spt:getPlaceName(spt:getWbProp($wbData, 'P19')/*:value/@id)}
             </birth>
             <death>{
-                let $prop := spt:getWbProp($wbData, 'P570')/*:value
-                let $teiDate := spt:getTEIDate($prop)
-                    
-                return (
-                    attribute when {$teiDate},
-                    spt:getLongDate($teiDate, 'de')
-                )}
-                {spt:getPlaceName(spt:getWbProp($wbData, 'P20')/*:value/@id)}
+                spt:getWhen(spt:getFullProp($wbData, 'P570')),
+                spt:getPlaceName(spt:getWbProp($wbData, 'P20')/*:value/@id)}
             </death>
         </person>
     else
         <person xml:id="a" xmlns="http://www.tei-c.org/ns/1.0">
             <persName>{
-                for $part at $pos in tokenize($query, '_')
-                    let $el := if ($pos = 1) then 'forename'
-                        else if ($pos = count(tokenize($query, '_'))) then 'surname'
-                        else if ($part = 'von') then 'nameLink'
-                        else 'name'
-                    
-                    return element {$el} {$part}
+                spt:getNames(text{translate($query, '_', ' ')})
             }</persName>
-        <!--
-            {if (contains($v, '/'))
-                then <tei:listBibl>
-                    <tei:bibl>
-                        <tei:ref target="{$val}" />
-                    </tei:bibl>
-                </tei:listBibl>
-                else ()
-            }
-        -->
         </person>
 };
 
+declare function spt:getWhen($data) as node()* {
+    (
+        if ($data//*:mainsnak//*:value) then
+            attribute when {spt:getTEIDate($data//*:mainsnak//*:value)}
+        else (),
+        if ($data//*:qualifiers/*:property[@id='P1319']) then
+            attribute not-before {spt:getTEIDate($data//*:qualifiers/*:property[@id='P1319']//*:value)}
+        else(),
+        if ($data//*:qualifiers/*:property[@id='P1326']) then
+            attribute not-after {spt:getTEIDate($data//*:qualifiers/*:property[@id='P1326']//*:value)}
+        else(),
+        if ($data//*:mainsnak//*:value) then
+            text {spt:getLongDate(spt:getTEIDate($data//*:mainsnak//*:value), 'de')}
+        else if ($data//*:qualifiers/*:property[@id='P1319'] and $data//*:qualifiers/*:property[@id='P1326']) then
+            text {"zwischen " || spt:getLongDate(spt:getTEIDate($data//*:qualifiers/*:property[@id='P1319']//*:value), 'de') ||
+            " und " || spt:getLongDate(spt:getTEIDate($data//*:qualifiers/*:property[@id='P1326']//*:value), 'de')}
+        else if ($data//*:qualifiers/*:property[@id='P1319']) then
+            text {"vor " || spt:getLongDate(spt:getTEIDate($data//*:qualifiers/*:property[@id='P1319']//*:value), 'de')}
+        else if ($data//*:qualifiers/*:property[@id='P1326']) then
+            text {"vor " || spt:getLongDate(spt:getTEIDate($data//*:qualifiers/*:property[@id='P1326']//*:value), 'de')}
+        else text {"unbekannt"}
+    )
+};
+
+declare function spt:getFullProp ($wbData as node(), $prop as xs:string) as node()* {
+    $wbData//*:property[@id = $prop]
+};
 
 declare function spt:getWbProp($wbData as node(), $prop as xs:string) as node()* {
     spt:getWbProp($wbData, $prop, 1)
@@ -103,12 +102,12 @@ declare function spt:getTEIDate ($prop as node()) as xs:string {
 };
 
 declare function spt:getPlaceName ($id as xs:string) as node() {
-    <placeName>{
-        let $reqP := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;ids=" || $id || "&amp;languages=de"
+    <placeName xmlns="http://www.tei-c.org/ns/1.0">{
+        let $reqP := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;ids=" || $id || "&amp;languages=de|en"
         let $doc := doc($reqP)
         
         return ( 
-            attribute ref {'http://d-nb.info/gnd/' || spt:getWbProp($doc, 'P227')/@value},
+            attribute ref {'http://geonames.org/' || spt:getWbProp($doc, 'P1566')/@value},
         xs:string($doc//*:entity[1]/*:labels/*:label[1]/@value)
         )
     }</placeName>
@@ -129,5 +128,5 @@ declare function spt:getNames ($node as node()) as node()* {
             then 'forename'
             else 'surname'
     
-        return element {$elem} {$part}
+        return element {fn:QName("http://www.tei-c.org/ns/1.0", $elem)} {$part}
 };
