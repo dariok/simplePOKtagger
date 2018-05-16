@@ -105,18 +105,18 @@ declare function spt:getTEIDate ($prop as node()) as xs:string {
 declare function spt:getPlaceName ($id as xs:string) as node() {
     <placeName>{
         let $reqP := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;ids=" || $id || "&amp;languages=de"
-            let $doc := doc($reqP)
-            
-            return ( 
-                attribute ref {'http://d-nb.info/gnd/' || spt:getWbProp($doc, 'P227')/@value},
-            xs:string($doc//*:entity[1]/*:labels/*:label[1]/@value)
+        let $doc := doc($reqP)
+        
+        return ( 
+            attribute ref {'http://d-nb.info/gnd/' || spt:getWbProp($doc, 'P227')/@value},
+        xs:string($doc//*:entity[1]/*:labels/*:label[1]/@value)
         )
     }</placeName>
 };
 
 declare function spt:getNames ($node as node()) as node()* {
     let $parts := tokenize($node/@value, ' ')
-    let $vornamen := ('Bernhard', 'Maria')
+    let $vornamen := doc('/db/apps/spt/forenames.xml')
     
     for $part at $pos in $parts
         let $elem := if ($pos = 1)
@@ -125,7 +125,7 @@ declare function spt:getNames ($node as node()) as node()* {
             then 'surname'
             else if ($part = 'von')
             then 'nameLink'
-            else if (contains($vornamen, $parts))
+            else if ($vornamen//*:forename[. = lower-case($part)])
             then 'forename'
             else 'surname'
     
