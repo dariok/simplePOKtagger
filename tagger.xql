@@ -7,8 +7,8 @@ declare function spt:person($query as xs:string)  {
     let $req := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;titles=" || $query || "&amp;languages=de|en"
     let $resp := doc($req)
     
-    return if ($resp//*:entity[@id != '-1']) then
-        let $wbData := $resp//*:entity[@id != '-1']
+    return if ($resp//*:entity[not(starts-with(@id, '-'))]) then
+        let $wbData := $resp//*:entity[not(starts-with(@id, '-'))]
         
         return
         <person xmlns="http://www.tei-c.org/ns/1.0">
@@ -19,12 +19,24 @@ declare function spt:person($query as xs:string)  {
                 for $form in distinct-values($wbData[1]/*:aliases//*:alias/@value)
                     return <persName type="alias">{$form}</persName>
             }
-            <occupation>{normalize-space($wbData[1]//*:descriptions/*:description[1]/@value)}</occupation>
-            <idno type="URL" subtype="GND">{'http://d-nb.info/gnd/' || spt:getWbProp($wbData, 'P227')/@value}</idno>
+            {
+                if ($wbData[1]//*:description[@language = 'de']) then
+                    <occupation>{normalize-space($wbData[1]//*:description[@language = 'de']/@value)}</occupation>
+                else if ($wbData[1]//*:description) then
+                    <occupation>{normalize-space($wbData[1]//*:description[1]/@value)}</occupation>
+                else ()
+            }
+            {
+                for $idno in (spt:getWbProps($wbData, ('P227', 'P214')))
+                    let $name := if ($idno/@id = 'P227') then "GND" else "VIAF"
+                    let $link := if ($idno/@id = 'P227') then "https://d-nb.info/gnd/" else "https://viaf.org/viaf/"
+                    
+                    return <idno type="URL" subtype="{$name}">{$link || $idno//*:datavalue/@value}</idno>
+            }
             <sex>{
                 let $reqP := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;ids=" || 
                         spt:getWbProp($wbData, 'P21')/*:value/@id
-                        || "&amp;languages=en"
+                        || "&amp;languages=de|en"
                     
                     return substring(doc($reqP)//*:entity[1]/*:labels/*:label[1]/@value, 1, 1)
             }</sex>
@@ -40,12 +52,28 @@ declare function spt:person($query as xs:string)  {
     else
         <person xml:id="a" xmlns="http://www.tei-c.org/ns/1.0">
             <persName>{
-                spt:getNames(text{translate($query, '_', ' ')})
+                spt:getNames(<name value="{translate($query, '_', ' ')}"/>)
             }</persName>
         </person>
 };
 
 declare function spt:getWhen($data) as node()* {
+    if (count($data//*:mainsnak) > 1) then
+    (
+        for $date at $pos in $data//*:mainsnak
+            group by $dateVal := $date//*:value/@time
+            order by $dateVal
+            
+            return (
+                if ($pos = 1) then  attribute not-before {spt:getTEIDate($date//*:value)} else(),
+                if ($pos = count($date)) then  attribute not-after {spt:getTEIDate($date//*:value)} else(),
+                text {spt:getLongDate(spt:getTEIDate($date//*:value), 'de')},
+                if ($pos = count($data//*:mainsnak)) then ()
+                else if ($pos = count($data//*:mainsnak) - 1) then text {" oder "}
+                else text {", "}
+            )
+    )
+    else
     (
         if ($data//*:mainsnak//*:value) then
             attribute when {spt:getTEIDate($data//*:mainsnak//*:value)}
@@ -70,15 +98,17 @@ declare function spt:getWhen($data) as node()* {
 };
 
 declare function spt:getFullProp ($wbData as node(), $prop as xs:string) as node()* {
-    $wbData//*:property[@id = $prop]
+    $wbData//*:claims/*:property[@id = $prop]
 };
-
 declare function spt:getWbProp($wbData as node(), $prop as xs:string) as node()* {
     spt:getWbProp($wbData, $prop, 1)
 };
-
 declare function spt:getWbProp($wbData as node(), $prop as xs:string, $sel) as node()* {
-    $wbData//*:mainsnak[@property = $prop][$sel]/*:datavalue
+    $wbData//*:claims/*:property//*:mainsnak[@property = $prop][$sel]/*:datavalue
+};
+declare function spt:getWbProps($wbData as node(), $props as xs:string+) as node()+ {
+    for $prop in $props
+        return spt:getFullProp($wbData, $prop)
 };
 
 declare function spt:getLongDate ($dateString as xs:string, $lang as xs:string) as xs:string {
