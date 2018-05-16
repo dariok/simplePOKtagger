@@ -2,8 +2,63 @@ xquery version "3.1";
 
 module namespace spt = "https://github.com/dariok/simplePOKtagger";
 
-declare function spt:person($query as xs:string)  {
+declare variable $spt:normNames := map {'P214' := "VIAF", 'P227' := "GND", 'P1566' := "Geonames"};
+declare variable $spt:normLinks := map {'P214' := "https://viaf.org/viaf/", 'P227' := "https://d-nb.info/gnd/", 'P1566' := "http://geonames.org/"};
 
+declare function spt:place ($query as xs:string) {
+    let $req := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;titles=" || $query || "&amp;languages=de|en"
+    let $resp := doc($req)
+    
+    return if ($resp//*:entity[not(starts-with(@id, '-'))]) then
+        let $wbData := $resp//*:entity[not(starts-with(@id, '-'))]
+        
+        return
+        <place xmlns="http://www.tei-c.org/ns/1.0">
+            <placeName>{xs:string($wbData[1]/*:labels/*:label[1]/@value)}</placeName>
+            {
+                for $form in distinct-values($wbData[1]/*:aliases//*:alias/@value)
+                    return <placeName type="alt">{$form}</placeName>
+            }
+            {
+                for $idno in (spt:getWbProps($wbData, ('P227', 'P214', 'P1566')))
+                    let $name := $spt:normNames($idno/@id)
+                    let $link := $spt:normLinks($idno/@id)
+                    
+                    for $no in $idno//*:mainsnak/*:datavalue
+                        return <idno type="URL" subtype="{$name}">{$link || $no/@value}</idno>
+            }
+            {
+                if ($wbData[1]//*:description[@language = 'de']) then
+                    <desc>{normalize-space($wbData[1]//*:description[@language = 'de']/@value)}</desc>
+                else if ($wbData[1]//*:description) then
+                    <desc>{normalize-space($wbData[1]//*:description[1]/@value)}</desc>
+                else ()
+            }
+            {
+                <location>{
+                    for $loc in spt:getFullProp($wbData, 'P17')/*:claim[*:mainsnak/@property = 'P17']
+                        return
+                        <country>{
+                            let $reqP := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;ids=" || $loc//*:value/@id || "&amp;languages=de|en"
+                            let $doc := doc($reqP)
+                            
+                            return (
+                                if (spt:getWbProp($doc, 'P1566')/@value) then attribute ref {'http://geonames.org/' || spt:getWbProp($doc, 'P1566')/@value} else (),
+                                if ($loc//*:property[@id = 'P580']) then attribute not-before {spt:getTEIDate($loc//*:property[@id = 'P580']//*:value)} else (),
+                                if ($loc//*:property[@id = 'P582']) then attribute not-after {spt:getTEIDate($loc//*:property[@id = 'P582']//*:value)} else (),
+                                xs:string($doc//*:entity[1]/*:labels/*:label[1]/@value)
+                            )
+                        }</country>
+                }</location>
+            }
+        </place>
+    else
+        <place xmlns="http://www.tei-c.org/ns/1.0">
+            <placeName>{$query}</placeName>
+        </place>
+};
+
+declare function spt:person ($query as xs:string) {
     let $req := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;titles=" || $query || "&amp;languages=de|en"
     let $resp := doc($req)
     
