@@ -35,8 +35,10 @@ declare function spt:place ($query as xs:string) {
                 else ()
             }
             {
-                <location>{
-                    for $loc in spt:getFullProp($wbData, 'P17')/*:claim[*:mainsnak/@property = 'P17']
+                let $countries := spt:getFullProp($wbData, 'P17')
+                return
+                <location type="country">{
+                    for $loc in $countries/*:claim[*:mainsnak/@property = 'P17']
                         return
                         <country>{
                             let $reqP := "https://www.wikidata.org/w/api.php?action=wbgetentities&amp;format=xml&amp;sites=enwiki|dewiki&amp;ids=" || $loc//*:value/@id || "&amp;languages=de|en"
@@ -50,6 +52,15 @@ declare function spt:place ($query as xs:string) {
                             )
                         }</country>
                 }</location>
+            }
+            {
+                let $coords := spt:getWbProps($wbData, ('P1332', 'P1333', 'P1334', 'P1335'))
+                return if (count($coords) > 0) then
+                    <location type="coords">{
+                        for $coord in $coords
+                            return <geo>{$coord//*:value/@longitude || ' ' || $coord//*:value/@latitude}</geo>
+                    }</location>
+                else()
             }
         </place>
     else
