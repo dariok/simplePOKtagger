@@ -32,7 +32,7 @@ declare function spt:org ($query as xs:string) {
                         let $name := $spt:normNames($idno/@id)
                         let $link := $spt:normLinks($idno/@id)
                         
-                        for $no in $idno//*:mainsnak/*:datavalue
+                        for $no in $idno//*:claim[1]/*:mainsnak/*:datavalue
                             return <idno type="URL" subtype="{$name}">{$link || $no/@value}</idno>
                 else ()
             }
@@ -150,7 +150,7 @@ declare function spt:place ($query as xs:string) {
                     let $name := $spt:normNames($idno/@id)
                     let $link := $spt:normLinks($idno/@id)
                     
-                    for $no in $idno//*:mainsnak/*:datavalue
+                    for $no in $idno//*:claim[1]/*:mainsnak/*:datavalue
                         return <idno type="URL" subtype="{$name}">{$link || $no/@value}</idno>
             }
             {
@@ -228,7 +228,7 @@ declare function spt:person ($query as xs:string) {
                     let $name := if ($idno/@id = 'P227') then "GND" else "VIAF"
                     let $link := if ($idno/@id = 'P227') then "https://d-nb.info/gnd/" else "https://viaf.org/viaf/"
                     
-                    return <idno type="URL" subtype="{$name}">{$link || $idno//*:datavalue/@value}</idno>
+                    return <idno type="URL" subtype="{$name}">{$link || $idno//*:claim[1]/*:mainsnak/*:datavalue/@value}</idno>
             }
             <sex>{
                 let $reqP := $spt:reqP || spt:getWbProp($wbData, 'P21')/*:value/@id
