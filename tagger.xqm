@@ -14,8 +14,12 @@ declare function spt:org ($query as xs:string) {
         let $wbData := $resp//*:entity[not(starts-with(@id, '-'))]
         
         (: return nothing if result is a disambiguation page :)
-        return if ($wbData[1]//*:property[@id='P31']//*:value[@id='Q4167410']) then () else
-        <org xmlns="http://www.tei-c.org/ns/1.0">
+        return if ($wbData[1]//*:property[@id='P31']//*:value[@id='Q4167410']) then
+	        <org xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$query}">
+	            <orgName>{translate($query, '_', ' ')}</orgName>
+	        </org>
+        else
+        <org xmlns="http://www.tei-c.org/ns/1.0"xml:id="{$query}">
             <orgName>{xs:string($wbData[1]/*:labels/*:label[1]/@value)}</orgName>
             {
                 for $form in distinct-values($wbData[1]/*:aliases//*:alias/@value)
@@ -118,7 +122,7 @@ declare function spt:org ($query as xs:string) {
             }
         </org>
     else
-        <org xmlns="http://www.tei-c.org/ns/1.0">
+        <org xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$query}">
             <orgName>{translate($query, '_', ' ')}</orgName>
         </org>
 };
@@ -130,8 +134,12 @@ declare function spt:place ($query as xs:string) {
         let $wbData := $resp//*:entity[not(starts-with(@id, '-'))]
         
         (: return nothing if result is a disambiguation page :)
-        return if ($wbData[1]//*:property[@id='P31']//*:value[@id='Q4167410']) then () else
-        <place xmlns="http://www.tei-c.org/ns/1.0">
+        return if ($wbData[1]//*:property[@id='P31']//*:value[@id='Q4167410']) then
+        	<place xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$query}">
+	            <placeName>{$query}</placeName>
+	        </place>
+        else
+        <place xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$query}">
             <placeName>{xs:string($wbData[1]/*:labels/*:label[1]/@value)}</placeName>
             {
                 for $form in distinct-values($wbData[1]/*:aliases//*:alias/@value)
@@ -181,7 +189,7 @@ declare function spt:place ($query as xs:string) {
             }
         </place>
     else
-        <place xmlns="http://www.tei-c.org/ns/1.0">
+        <place xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$query}">
             <placeName>{$query}</placeName>
         </place>
 };
@@ -193,8 +201,14 @@ declare function spt:person ($query as xs:string) {
         let $wbData := $resp//*:entity[not(starts-with(@id, '-'))]
         
         (: return nothing if result is a disambiguation page :)
-        return if ($wbData[1]//*:property[@id='P31']//*:value[@id='Q4167410']) then () else
-        <person xmlns="http://www.tei-c.org/ns/1.0">
+        return if ($wbData[1]//*:property[@id='P31']//*:value[@id='Q4167410']) then
+	        <person xml:id="{$query}" xmlns="http://www.tei-c.org/ns/1.0">
+	            <persName>{
+	                spt:getNames(<name value="{translate($query, '_', ' ')}"/>)
+	            }</persName>
+	        </person>
+        else
+        <person xmlns="http://www.tei-c.org/ns/1.0" xml:id="{$query}">
             <persName>
                 {spt:getNames($wbData[1]/*:labels/*:label[1])}
             </persName>
@@ -231,7 +245,7 @@ declare function spt:person ($query as xs:string) {
             </death>
         </person>
     else
-        <person xml:id="a" xmlns="http://www.tei-c.org/ns/1.0">
+        <person xml:id="{$query}" xmlns="http://www.tei-c.org/ns/1.0">
             <persName>{
                 spt:getNames(<name value="{translate($query, '_', ' ')}"/>)
             }</persName>
