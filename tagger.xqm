@@ -26,7 +26,7 @@ declare function spt:org ($query as xs:string) {
                     return <orgName type="alt">{$form}</orgName>
             }
             {
-                let $props := spt:getWbProps($wbData, ('P227', 'P214', 'P1566'))
+                let $props := spt:getWbProps($wbData[1], ('P227', 'P214', 'P1566'))
                 return if ($props) then 
                     for $idno in ()
                         let $name := $spt:normNames($idno/@id)
@@ -146,7 +146,7 @@ declare function spt:place ($query as xs:string) {
                     return <placeName type="alt">{$form}</placeName>
             }
             {
-                for $idno in (spt:getWbProps($wbData, ('P227', 'P214', 'P1566')))
+                for $idno in (spt:getWbProps($wbData[1], ('P227', 'P214', 'P1566')))
                     let $name := $spt:normNames($idno/@id)
                     let $link := $spt:normLinks($idno/@id)
                     
@@ -171,8 +171,8 @@ declare function spt:place ($query as xs:string) {
                             
                             return (
                                 if (spt:getWbProp($doc, 'P1566')/@value) then attribute ref {'http://geonames.org/' || spt:getWbProp($doc, 'P1566')/@value} else (),
-                                if ($loc//*:property[@id = 'P580']) then attribute not-before {spt:getTEIDate($loc//*:property[@id = 'P580']//*:value)} else (),
-                                if ($loc//*:property[@id = 'P582']) then attribute not-after {spt:getTEIDate($loc//*:property[@id = 'P582']//*:value)} else (),
+                                if ($loc//*:property[@id = 'P580']) then attribute notBefore {spt:getTEIDate($loc//*:property[@id = 'P580']//*:value)} else (),
+                                if ($loc//*:property[@id = 'P582']) then attribute notAfter {spt:getTEIDate($loc//*:property[@id = 'P582']//*:value)} else (),
                                 xs:string($doc//*:entity[1]/*:labels/*:label[1]/@value)
                             )
                         }</country>
@@ -224,24 +224,24 @@ declare function spt:person ($query as xs:string) {
                 else ()
             }
             {
-                for $idno in (spt:getWbProps($wbData, ('P227', 'P214')))
+                for $idno in (spt:getWbProps($wbData[1], ('P227', 'P214')))
                     let $name := if ($idno/@id = 'P227') then "GND" else "VIAF"
                     let $link := if ($idno/@id = 'P227') then "https://d-nb.info/gnd/" else "https://viaf.org/viaf/"
                     
                     return <idno type="URL" subtype="{$name}">{$link || $idno//*:claim[1]/*:mainsnak/*:datavalue/@value}</idno>
             }
             <sex>{
-                let $reqP := $spt:reqP || spt:getWbProp($wbData, 'P21')/*:value/@id
+                let $reqP := $spt:reqP || spt:getWbProp($wbData[1], 'P21')/*:value/@id
                     
                     return substring(doc($reqP)//*:entity[1]/*:labels/*:label[1]/@value, 1, 1)
             }</sex>
             <birth>{
-                spt:getWhen(spt:getFullProp($wbData, 'P569')),
-                spt:getPlaceName(spt:getWbProp($wbData, 'P19')/*:value/@id)}
+                spt:getWhen(spt:getFullProp($wbData[1], 'P569')),
+                spt:getPlaceName(spt:getWbProp($wbData[1], 'P19')/*:value/@id)}
             </birth>
             <death>{
-                spt:getWhen(spt:getFullProp($wbData, 'P570')),
-                spt:getPlaceName(spt:getWbProp($wbData, 'P20')/*:value/@id)}
+                spt:getWhen(spt:getFullProp($wbData[1], 'P570')),
+                spt:getPlaceName(spt:getWbProp($wbData[1], 'P20')/*:value/@id)}
             </death>
         </person>
     else
@@ -261,8 +261,8 @@ declare function spt:getWhen($data) as node()* {
             return $date
             
         return (
-            attribute not-before {spt:getTEIDate($dates[1]//*:value)},
-            attribute not-after {spt:getTEIDate($dates[last()]//*:value)},
+            attribute notBefore {spt:getTEIDate($dates[1]//*:value)},
+            attribute notAfter {spt:getTEIDate($dates[last()]//*:value)},
             for $date at $pos in $dates
                 return (
                     text {spt:getLongDate(spt:getTEIDate($date//*:value), 'de')},
@@ -278,10 +278,10 @@ declare function spt:getWhen($data) as node()* {
             attribute when {spt:getTEIDate($data//*:mainsnak//*:value)}
         else (),
         if ($data//*:qualifiers/*:property[@id='P1319']) then
-            attribute not-before {spt:getTEIDate($data//*:qualifiers/*:property[@id='P1319']//*:value)}
+            attribute notBefore {spt:getTEIDate($data//*:qualifiers/*:property[@id='P1319']//*:value)}
         else(),
         if ($data//*:qualifiers/*:property[@id='P1326']) then
-            attribute not-after {spt:getTEIDate($data//*:qualifiers/*:property[@id='P1326']//*:value)}
+            attribute notAfter {spt:getTEIDate($data//*:qualifiers/*:property[@id='P1326']//*:value)}
         else(),
         if ($data//*:mainsnak//*:value) then
             text {spt:getLongDate(spt:getTEIDate($data//*:mainsnak//*:value), 'de')}
